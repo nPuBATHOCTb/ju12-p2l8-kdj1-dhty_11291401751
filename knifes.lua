@@ -11,8 +11,6 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-local Stats = game:GetService("Stats")
-local VirtualUser = game:GetService("VirtualUser")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 
@@ -22,16 +20,15 @@ local PARENT = LP:WaitForChild("PlayerGui")
 local Cfg = {
     MenuKey = Enum.KeyCode.RightShift,
     AimEnabled = false, AimKey = Enum.KeyCode.E, AimFOV = 150, AimSmooth = 6.13,
-    AimPrediction = 0.14, AimVisibleOnly = true, AimAutoFire = false, AimAutoFireDelay = 0.1,
-    SilentAimEnabled = false, NoSpreadEnabled = true, RapidFireEnabled = false,
-    HitboxExpanderEnabled = false, HitboxSize = 5, -- Уменьшил дефолтный размер, чтобы не ломать игру
+    AimPrediction = 0.14, AimVisibleOnly = true, AimAutoFire = false,
+    NoSpreadEnabled = true, RapidFireEnabled = false,
+    HitboxExpanderEnabled = false, HitboxSize = 15,
     KillAuraEnabled = false, KillAuraRange = 20,
     
     ESPEnabled = true, ESPBox = true, ESPName = true, ESPDistance = true,
     ESPHealth = true, ESPSkeleton = false, ESPTracers = false, ESPHeadDot = false,
     ChamsEnabled = true, ChamsFillColor = Color3.fromRGB(255, 60, 60),
-    ChinaHat = false, HaloEnabled = false,
-    FOVCircle = true,
+    ChinaHat = false, HaloEnabled = false, FOVCircle = true,
     
     SpeedEnabled = false, SpeedValue = 25, JumpEnabled = false, JumpValue = 100,
     InfJumpEnabled = false, FlyEnabled = false, FlySpeed = 50, NoclipEnabled = false,
@@ -42,12 +39,15 @@ local Cfg = {
     
     Fullbright = false, Nightmode = false, AmbientLight = false, NoFog = false, NoShadows = false,
     GravityEnabled = false, GravityValue = 196.2, TimeEnabled = false, TimeValue = 14,
-    SnowEnabled = false, AntiAFKEnabled = true, AutoRespawnEnabled = false
+    SnowEnabled = false, AntiAFKEnabled = true,
+    
+    Brightness = 2, Exposure = 0, FogEnd = 1000,
+    BloomIntensity = 1, BloomSize = 24, SunRaysIntensity = 0.25
 }
 
 local State = {
     FlyBV = nil, SpinPhase = 0, ShakeTick = 0, LastShot = 0,
-    ESPCache = {}, SkelLines = {}, HitboxCache = {}, AnimTrack = nil, SnowEmitter = nil
+    ESPCache = {}, SkelLines = {}, AnimTrack = nil, SnowEmitter = nil
 }
 
 local Theme = {
@@ -75,8 +75,38 @@ local function GetHum(p) local c = (p or LP).Character return c and c:FindFirstC
 local function GetHead(p) local c = (p or LP).Character return c and c:FindFirstChild("Head") end
 
 local Blur = Create("BlurEffect", { Size = 0, Enabled = false }, Lighting)
-local ScreenGui = Create("ScreenGui", { Name = "KNIFES_UI", ResetOnSpawn = false, DisplayOrder = 999999 }, PARENT)
 
+-- КАСТОМНЫЙ ПРИЦЕЛ (КРАСНЫЕ ПИЛЮЛИ)
+local CrossGui = Create("ScreenGui", { Name = "KNIFES_CROSSHAIR", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999999 }, PARENT)
+local CrossContainer = Create("Frame", { Size = UDim2.fromOffset(40, 40), Position = UDim2.new(0.5, -20, 0.5, -20), BackgroundTransparency = 1 }, CrossGui)
+local function CreatePill(rot)
+    local pill = Create("Frame", { Size = UDim2.fromOffset(2, 8), Position = UDim2.new(0.5, -1, 0.5, -4), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundColor3 = Color3.fromRGB(255, 60, 60), BorderSizePixel = 0, Rotation = rot }, CrossContainer)
+    Corner(pill, 1)
+    local glow = Instance.new("UIStroke", pill)
+    glow.Color = Color3.fromRGB(255, 60, 60)
+    glow.Thickness = 3
+    glow.Transparency = 0.5
+    return pill
+end
+local p1 = CreatePill(0)
+local p2 = CreatePill(90)
+local p3 = CreatePill(180)
+local p4 = CreatePill(270)
+p1.Position = UDim2.new(0.5, 0, 0.5, -8)
+p2.Position = UDim2.new(0.5, 8, 0.5, 0)
+p3.Position = UDim2.new(0.5, 0, 0.5, 8)
+p4.Position = UDim2.new(0.5, -8, 0.5, 0)
+
+task.spawn(function()
+    local angle = 0
+    while getgenv().KNIFES_OMNI_LOADED do
+        angle = angle + 0.5
+        CrossContainer.Rotation = angle
+        task.wait(0.01)
+    end
+end)
+
+local ScreenGui = Create("ScreenGui", { Name = "KNIFES_UI", ResetOnSpawn = false, DisplayOrder = 999998 }, PARENT)
 local MainWin = Create("Frame", { Size = UDim2.fromOffset(850, 580), Position = UDim2.new(0.5, -425, 0.5, -290), BackgroundColor3 = Theme.bg, BackgroundTransparency = 0.1, BorderSizePixel = 0 }, ScreenGui)
 Corner(MainWin, 12)
 Stroke(MainWin, Theme.red, 10, 0.7)
@@ -125,9 +155,9 @@ for i, t in ipairs(Tabs) do
     end)
 end
 
-local function AddSection(text) Create("TextLabel", { Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1, Text = text, TextColor3 = Theme.red, Font = F_Main, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left }, Pages[CurrentTab]) end
-local function AddToggle(text, getter, setter)
-    local btn = Create("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Theme.elem, BackgroundTransparency = 0.5, BorderSizePixel = 0, Text = "  " .. text, TextColor3 = Theme.white, Font = F_Med, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false }, Pages[CurrentTab])
+local function AddSection(text, parent) Create("TextLabel", { Size = UDim2.new(1, 0, 0, 24), BackgroundTransparency = 1, Text = text, TextColor3 = Theme.red, Font = F_Main, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left }, parent or Pages[CurrentTab]) end
+local function AddToggle(text, getter, setter, parent)
+    local btn = Create("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Theme.elem, BackgroundTransparency = 0.5, BorderSizePixel = 0, Text = "  " .. text, TextColor3 = Theme.white, Font = F_Med, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false }, parent or Pages[CurrentTab])
     Corner(btn, 6)
     local ind = Create("Frame", { Size = UDim2.fromOffset(8, 8), Position = UDim2.new(1, -20, 0.5, -4), BackgroundColor3 = getter() and Theme.red or Theme.border }, btn)
     Corner(ind, 4)
@@ -137,8 +167,8 @@ local function AddToggle(text, getter, setter)
         local s = not getter() setter(s) Tw(ind, "BackgroundColor3", s and Theme.red or Theme.border, 0.15)
     end)
 end
-local function AddSlider(text, min, max, getter, setter)
-    local btn = Create("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Theme.elem, BackgroundTransparency = 0.5, BorderSizePixel = 0, Text = "  " .. text .. ": " .. tostring(getter()), TextColor3 = Theme.white, Font = F_Med, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false }, Pages[CurrentTab])
+local function AddSlider(text, min, max, getter, setter, parent)
+    local btn = Create("TextButton", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Theme.elem, BackgroundTransparency = 0.5, BorderSizePixel = 0, Text = "  " .. text .. ": " .. tostring(getter()), TextColor3 = Theme.white, Font = F_Med, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false }, parent or Pages[CurrentTab])
     Corner(btn, 6)
     btn.MouseEnter:Connect(function() Tw(btn, "BackgroundTransparency", 0.3, 0.15) end)
     btn.MouseLeave:Connect(function() Tw(btn, "BackgroundTransparency", 0.5, 0.15) end)
@@ -156,6 +186,37 @@ local function AddButton(text, color, callback)
     btn.MouseButton1Click:Connect(function() pcall(callback) end)
 end
 
+-- ВЫПАДАЮЩЕЕ МЕНЮ WORLD
+local SubWorld = Create("Frame", { Size = UDim2.fromOffset(300, 420), Position = UDim2.new(0.5, -150, 0.5, -210), BackgroundColor3 = Theme.bg, BorderSizePixel = 1, BorderColor3 = Theme.red, Visible = false, ZIndex = 1000 }, ScreenGui)
+Corner(SubWorld, 8)
+local SubTitle = Create("TextLabel", { Size = UDim2.new(1, 0, 0, 30), BackgroundColor3 = Theme.panel, Text = "World Ambience", TextColor3 = Theme.white, Font = F_Main, TextSize = 14, ZIndex = 1001 }, SubWorld)
+Corner(SubTitle, 8)
+local SubClose = Create("TextButton", { Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -30, 0, 0), BackgroundTransparency = 1, Text = "X", TextColor3 = Theme.red, Font = F_Main, TextSize = 14, ZIndex = 1001 }, SubWorld)
+SubClose.MouseButton1Click:Connect(function() SubWorld.Visible = false end)
+
+local SubList = Create("ScrollingFrame", { Size = UDim2.new(1, -20, 1, -40), Position = UDim2.fromOffset(10, 35), BackgroundTransparency = 1, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 1001 }, SubWorld)
+Create("UIListLayout", { Padding = UDim.new(0, 5) }, SubList)
+
+AddSection("LIGHTING", SubList)
+AddSlider("Brightness", 0, 5, function() return Cfg.Brightness end, function(v) Cfg.Brightness = v end, SubList)
+AddSlider("Exposure", -5, 5, function() return Cfg.Exposure end, function(v) Cfg.Exposure = v end, SubList)
+AddToggle("Fullbright", function() return Cfg.Fullbright end, function(v) Cfg.Fullbright = v end, SubList)
+AddToggle("Nightmode", function() return Cfg.Nightmode end, function(v) Cfg.Nightmode = v end, SubList)
+AddSlider("Time of Day", 0, 24, function() return Cfg.TimeValue end, function(v) Cfg.TimeValue = v end, SubList)
+
+AddSection("FOG", SubList)
+AddToggle("Remove Fog", function() return Cfg.NoFog end, function(v) Cfg.NoFog = v end, SubList)
+AddSlider("Fog End", 100, 10000, function() return Cfg.FogEnd end, function(v) Cfg.FogEnd = v end, SubList)
+
+AddSection("EFFECTS", SubList)
+AddSlider("Bloom Intensity", 0, 5, function() return Cfg.BloomIntensity end, function(v) Cfg.BloomIntensity = v end, SubList)
+AddSlider("Bloom Size", 0, 50, function() return Cfg.BloomSize end, function(v) Cfg.BloomSize = v end, SubList)
+AddSlider("Sun Rays", 0, 1, function() return Cfg.SunRaysIntensity end, function(v) Cfg.SunRaysIntensity = v end, SubList)
+
+AddSection("PHYSICS", SubList)
+AddToggle("Change Gravity", function() return Cfg.GravityEnabled end, function(v) Cfg.GravityEnabled = v end, SubList)
+AddSlider("Gravity Value", 10, 500, function() return Cfg.GravityValue end, function(v) Cfg.GravityValue = v end, SubList)
+
 CurrentTab = "COMBAT"
 AddSection("AIMBOT")
 AddToggle("Enable Aimbot (Hold E)", function() return Cfg.AimEnabled end, function(v) Cfg.AimEnabled = v end)
@@ -169,7 +230,7 @@ AddSection("EXPLOITS")
 AddToggle("No Spread", function() return Cfg.NoSpreadEnabled end, function(v) Cfg.NoSpreadEnabled = v end)
 AddToggle("Rapid Fire", function() return Cfg.RapidFireEnabled end, function(v) Cfg.RapidFireEnabled = v end)
 AddToggle("Hitbox Expander", function() return Cfg.HitboxExpanderEnabled end, function(v) Cfg.HitboxExpanderEnabled = v end)
-AddSlider("Hitbox Size", 2, 30, function() return Cfg.HitboxSize end, function(v) Cfg.HitboxSize = v end)
+AddSlider("Hitbox Size", 5, 30, function() return Cfg.HitboxSize end, function(v) Cfg.HitboxSize = v end)
 AddToggle("Kill Aura", function() return Cfg.KillAuraEnabled end, function(v) Cfg.KillAuraEnabled = v end)
 AddSlider("Aura Range", 5, 50, function() return Cfg.KillAuraRange end, function(v) Cfg.KillAuraRange = v end)
 
@@ -189,11 +250,6 @@ AddToggle("Enemy Chams", function() return Cfg.ChamsEnabled end, function(v) Cfg
 AddToggle("China Hat", function() return Cfg.ChinaHat end, function(v) Cfg.ChinaHat = v end)
 AddToggle("Halo", function() return Cfg.HaloEnabled end, function(v) Cfg.HaloEnabled = v end)
 AddToggle("FOV Circle", function() return Cfg.FOVCircle end, function(v) Cfg.FOVCircle = v end)
-
-AddSection("WORLD")
-AddToggle("Fullbright", function() return Cfg.Fullbright end, function(v) Cfg.Fullbright = v end)
-AddToggle("Nightmode", function() return Cfg.Nightmode end, function(v) Cfg.Nightmode = v end)
-AddToggle("No Fog", function() return Cfg.NoFog end, function(v) Cfg.NoFog = v end)
 
 CurrentTab = "MOVEMENT"
 AddSection("MOVEMENT")
@@ -217,8 +273,15 @@ AddSlider("Tele Range", 5, 50, function() return Cfg.TelekinesisRange end, funct
 AddToggle("Emotes (Dance)", function() return Cfg.EmotesEnabled end, function(v) Cfg.EmotesEnabled = v end)
 AddToggle("Chat Spam", function() return Cfg.ChatSpamEnabled end, function(v) Cfg.ChatSpamEnabled = v end)
 
+CurrentTab = "WORLD"
+AddSection("ENVIRONMENT")
+local WorldBtn = Create("TextButton", { Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Theme.red, BackgroundTransparency = 0.2, BorderSizePixel = 0, Text = "  Ambience Settings  >", TextColor3 = Theme.white, Font = F_Main, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, AutoButtonColor = false }, Pages["WORLD"])
+Corner(WorldBtn, 6)
+WorldBtn.MouseButton1Click:Connect(function() SubWorld.Visible = not SubWorld.Visible end)
+AddToggle("Snow Particles", function() return Cfg.SnowEnabled end, function(v) Cfg.SnowEnabled = v end)
+
 CurrentTab = "MISC"
-AddSection("MISC")
+AddSection("UTILITIES")
 AddToggle("Anti-AFK", function() return Cfg.AntiAFKEnabled end, function(v) Cfg.AntiAFKEnabled = v end)
 AddButton("Server Hop", Theme.red, function()
     local Servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
@@ -235,41 +298,97 @@ end)
 
 CurrentTab = "COMBAT"
 
--- Безопасный хитбокс (НЕ ТРОГАЕМ HRP)
+-- ═══ ВИЗУАЛЬНЫЙ ХИТБОКС ═══
 task.spawn(function()
     while getgenv().KNIFES_OMNI_LOADED do
-        task.wait(0.2)
+        task.wait(0.1)
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LP and plr.Character then
-                local char = plr.Character
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
+                local hrp = GetHRP(plr)
+                if hrp then
+                    local hitbox = hrp:FindFirstChild("KNIFES_VISUAL_HB")
                     if Cfg.HitboxExpanderEnabled then
-                        if not State.HitboxCache[plr] then State.HitboxCache[plr] = {} end
-                        -- Меняем только голову и торс!
-                        for _, part in ipairs(char:GetDescendants()) do
-                            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                                if not State.HitboxCache[plr][part] then State.HitboxCache[plr][part] = {Size = part.Size, Trans = part.Transparency} end
-                                part.Size = Vector3.new(Cfg.HitboxSize, Cfg.HitboxSize, Cfg.HitboxSize)
-                                part.Transparency = 0.8
-                                part.CanCollide = false
-                                part.Massless = true
-                                part.CanTouch = true
-                                part.CanQuery = true
-                            end
+                        if not hitbox then
+                            hitbox = Instance.new("Part")
+                            hitbox.Name = "KNIFES_VISUAL_HB"
+                            hitbox.Shape = Enum.PartType.Ball
+                            hitbox.Size = Vector3.new(Cfg.HitboxSize, Cfg.HitboxSize, Cfg.HitboxSize)
+                            hitbox.Material = Enum.Material.Neon
+                            hitbox.Color = Color3.fromRGB(255, 0, 0)
+                            hitbox.Transparency = 0.5
+                            hitbox.CanCollide = false
+                            hitbox.Massless = true
+                            hitbox.CanQuery = false
+                            hitbox.CanTouch = false
+                            
+                            local stroke = Instance.new("SelectionBox")
+                            stroke.Name = "HB_Stroke"
+                            stroke.Adornee = hitbox
+                            stroke.LineThickness = 0.05
+                            stroke.Color3 = Color3.fromRGB(255, 255, 255)
+                            stroke.SurfaceTransparency = 0.8
+                            stroke.Parent = hitbox
+
+                            local weld = Instance.new("Weld")
+                            weld.Part0 = hrp
+                            weld.Part1 = hitbox
+                            weld.Parent = hitbox
+                            
+                            hitbox.Parent = hrp
+                        else
+                            hitbox.Size = Vector3.new(Cfg.HitboxSize, Cfg.HitboxSize, Cfg.HitboxSize)
                         end
                     else
-                        if State.HitboxCache[plr] then
-                            for part, data in pairs(State.HitboxCache[plr]) do
-                                if part and part.Parent then part.Size = data.Size part.Transparency = data.Trans end
-                            end
-                            State.HitboxCache[plr] = nil
-                        end
+                        if hitbox then hitbox:Destroy() end
                     end
                 end
             end
         end
     end
+end)
+
+-- ═══ ЛОГИКА ═══
+RunService.Heartbeat:Connect(function()
+    Lighting.Brightness = Cfg.Brightness
+    Lighting.ExposureCompensation = Cfg.Exposure
+    Lighting.ClockTime = Cfg.TimeEnabled and Cfg.TimeValue or (Cfg.Nightmode and 0 or 14)
+    Lighting.FogEnd = Cfg.NoFog and 100000 or Cfg.FogEnd
+    
+    if Cfg.Fullbright then
+        Lighting.Ambient = Color3.fromRGB(200, 200, 200)
+        Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
+    else
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+    end
+    
+    if Cfg.GravityEnabled then Workspace.Gravity = Cfg.GravityValue end
+    
+    local bloom = Lighting:FindFirstChildOfClass("BloomEffect") or Instance.new("BloomEffect", Lighting)
+    bloom.Intensity = Cfg.BloomIntensity
+    bloom.Size = Cfg.BloomSize
+    
+    local rays = Lighting:FindFirstChildOfClass("SunRaysEffect") or Instance.new("SunRaysEffect", Lighting)
+    rays.Intensity = Cfg.SunRaysIntensity
+    
+    local hum = GetHum()
+    if hum then
+        if Cfg.SpeedEnabled then hum.WalkSpeed = Cfg.SpeedValue end
+        if Cfg.JumpEnabled then hum.JumpPower = Cfg.JumpValue end
+        if Cfg.NoclipEnabled then for _, p in ipairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
+    end
+    
+    if Cfg.KillAuraEnabled then
+        local myHRP = GetHRP()
+        if myHRP then for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character then local h, hrp = GetHum(p), GetHRP(p) if h and hrp and h.Health > 0 and (hrp.Position - myHRP.Position).Magnitude <= Cfg.KillAuraRange then h.Health = 0 end end end end
+    end
+    
+    if Cfg.TelekinesisEnabled then
+        local myHRP = GetHRP()
+        if myHRP then for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character then local hrp = GetHRP(p) if hrp and (hrp.Position - myHRP.Position).Magnitude <= Cfg.TelekinesisRange then pcall(function() hrp.CFrame = myHRP.CFrame * CFrame.new(0,3,-2) end) end end end end
+    end
+    
+    if Cfg.FlingAllEnabled then for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character then local hrp = GetHRP(p) if hrp then pcall(function() hrp:SetNetworkOwner(LP) end) hrp.AssemblyLinearVelocity = Vector3.new(math.random(-2000,2000), 2000, math.random(-2000,2000)) end end end end
 end)
 
 if getrawmetatable and setreadonly and hookfunction then
@@ -286,16 +405,7 @@ if getrawmetatable and setreadonly and hookfunction then
     setreadonly(mt, true)
 end
 
-if hookfunction and workspace.Raycast then
-    local oldRay = workspace.Raycast
-    hookfunction(workspace.Raycast, function(self, origin, dir, params)
-        if Cfg.NoSpreadEnabled then
-            local cam = Workspace.CurrentCamera
-            if (origin - cam.CFrame.Position).Magnitude < 5 then return oldRay(self, origin, cam.CFrame.LookVector * dir.Magnitude, params) end
-        end
-        return oldRay(self, origin, dir, params)
-    end)
-end
+UIS.JumpRequest:Connect(function() if Cfg.InfJumpEnabled then local h = GetHum() if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end end end)
 
 local ESPGui = Create("ScreenGui", { Name = "ESP", ResetOnSpawn = false }, PARENT)
 local SkelGui = Create("ScreenGui", { Name = "Skel", ResetOnSpawn = false }, PARENT)
@@ -327,9 +437,7 @@ RunService.RenderStepped:Connect(function(dt)
                 local head, hum, hrp = GetHead(p), GetHum(p), GetHRP(p)
                 if head and hum and hum.Health > 0 and hrp then
                     local targetPos = head.Position
-                    if Cfg.AimPrediction and Cfg.AimPrediction > 0 then
-                        targetPos = targetPos + (Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z) * Cfg.AimPrediction)
-                    end
+                    if Cfg.AimPrediction and Cfg.AimPrediction > 0 then targetPos = targetPos + (Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z) * Cfg.AimPrediction) end
                     local sp, on = cam:WorldToViewportPoint(targetPos)
                     if on and sp.Z > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
@@ -350,9 +458,7 @@ RunService.RenderStepped:Connect(function(dt)
         end
         if best then
             cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, best), 1 / Cfg.AimSmooth)
-            if Cfg.AimAutoFire and tick() - State.LastShot > Cfg.AimAutoFireDelay then 
-                State.LastShot = tick() if mouse1click then pcall(mouse1click) end 
-            end
+            if Cfg.AimAutoFire and tick() - State.LastShot > 0.1 then State.LastShot = tick() if mouse1click then pcall(mouse1click) end end
         end
     end
 
@@ -363,11 +469,7 @@ RunService.RenderStepped:Connect(function(dt)
         if plr.Character then
             local head, hum, hrp = GetHead(plr), GetHum(plr), GetHRP(plr)
             if head and hum and hrp and hum.Health > 0 then
-                obj.hl.Adornee = plr.Character
-                obj.hl.FillColor = Cfg.ChamsFillColor
-                obj.hl.OutlineColor = Theme.white
-                obj.hl.Enabled = Cfg.ChamsEnabled
-                
+                obj.hl.Adornee = plr.Character obj.hl.FillColor = Cfg.ChamsFillColor obj.hl.OutlineColor = Theme.white obj.hl.Enabled = Cfg.ChamsEnabled
                 local sp, on = cam:WorldToViewportPoint(head.Position)
                 if Cfg.ESPEnabled and on and sp.Z > 0 then
                     local d = (hrp.Position - cam.CFrame.Position).Magnitude
@@ -400,51 +502,6 @@ RunService.RenderStepped:Connect(function(dt)
     end
     if Cfg.SpinbotEnabled then State.SpinPhase += dt * Cfg.SpinbotSpeed local hrp = GetHRP() if hrp then hrp.CFrame = CFrame.new(hrp.Position) * CFrame.Angles(0, State.SpinPhase, 0) end end
     if Cfg.ScreenShakeEnabled then State.ShakeTick += dt * 50 cam.CFrame = cam.CFrame * CFrame.new(math.sin(State.ShakeTick)*0.5, math.cos(State.ShakeTick*1.3)*0.5, 0) end
-end)
-
-RunService.Heartbeat:Connect(function(dt)
-    local hum = GetHum()
-    if hum then
-        if Cfg.SpeedEnabled then hum.WalkSpeed = Cfg.SpeedValue end
-        if Cfg.JumpEnabled then hum.JumpPower = Cfg.JumpValue end
-        if Cfg.NoclipEnabled then for _, p in ipairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end
-    end
-    if Cfg.KillAuraEnabled then
-        local myHRP = GetHRP()
-        if myHRP then for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character then local h, hrp = GetHum(p), GetHRP(p) if h and hrp and h.Health > 0 and (hrp.Position - myHRP.Position).Magnitude <= Cfg.KillAuraRange then h.Health = 0 end end end end
-    end
-    if Cfg.TelekinesisEnabled then
-        local myHRP = GetHRP()
-        if myHRP then for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character then local hrp = GetHRP(p) if hrp and (hrp.Position - myHRP.Position).Magnitude <= Cfg.TelekinesisRange then pcall(function() hrp.CFrame = myHRP.CFrame * CFrame.new(0,3,-2) end) end end end end
-    end
-    if Cfg.FlingAllEnabled then for _, p in ipairs(Players:GetPlayers()) do if p ~= LP and p.Character then local hrp = GetHRP(p) if hrp then pcall(function() hrp:SetNetworkOwner(LP) end) hrp.AssemblyLinearVelocity = Vector3.new(math.random(-2000,2000), 2000, math.random(-2000,2000)) end end end end
-    Lighting.ClockTime = Cfg.TimeEnabled and Cfg.TimeValue or (Cfg.Nightmode and 0 or 14)
-    Lighting.Ambient = Cfg.AmbientLight and Color3.fromRGB(40,40,40) or (Cfg.Fullbright and Color3.new(1,1,1) or Color3.fromRGB(127,127,127))
-    Lighting.Brightness = Cfg.Fullbright and 2 or 1
-    Lighting.FogEnd = Cfg.NoFog and 1e5 or 1000
-    Lighting.GlobalShadows = not Cfg.NoShadows
-    if Cfg.GravityEnabled then Workspace.Gravity = Cfg.GravityValue end
-    if Cfg.SnowEnabled then if not State.SnowEmitter then State.SnowEmitter = Create("ParticleEmitter", { Texture = "rbxassetid://241876428", Rate = 50, Speed = NumberRange.new(5, 10), Lifetime = NumberRange.new(2, 4), Size = NumberSequence.new(0.2), Color = ColorSequence.new(Color3.new(1,1,1)) }, LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")) end elseif State.SnowEmitter then State.SnowEmitter:Destroy() State.SnowEmitter = nil end
-end)
-
-UIS.JumpRequest:Connect(function() if Cfg.InfJumpEnabled then local h = GetHum() if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end end end)
-
-RunService.RenderStepped:Connect(function()
-    if Cfg.FlyEnabled then
-        local hrp = GetHRP()
-        if hrp then
-            if not State.FlyBV then State.FlyBV = Instance.new("BodyVelocity", hrp) State.FlyBV.MaxForce = Vector3.new(1e5,1e5,1e5) end
-            local cam = Workspace.CurrentCamera local move = Vector3.zero
-            if UIS:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
-            if UIS:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
-            if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
-            if move.Magnitude > 0 then move = move.Unit * Cfg.FlySpeed end
-            State.FlyBV.Velocity = move
-        end
-    elseif State.FlyBV then State.FlyBV:Destroy() State.FlyBV = nil end
 end)
 
 task.spawn(function()
@@ -502,7 +559,25 @@ task.spawn(function()
     end
 end)
 
-local fovGui = Create("ScreenGui", { Name = "FOV", ResetOnSpawn = false }, PARENT)
+RunService.RenderStepped:Connect(function()
+    if Cfg.FlyEnabled then
+        local hrp = GetHRP()
+        if hrp then
+            if not State.FlyBV then State.FlyBV = Instance.new("BodyVelocity", hrp) State.FlyBV.MaxForce = Vector3.new(1e5,1e5,1e5) end
+            local cam = Workspace.CurrentCamera local move = Vector3.zero
+            if UIS:IsKeyDown(Enum.KeyCode.W) then move += cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then move -= cam.CFrame.LookVector end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then move -= cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then move += cam.CFrame.RightVector end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
+            if move.Magnitude > 0 then move = move.Unit * Cfg.FlySpeed end
+            State.FlyBV.Velocity = move
+        end
+    elseif State.FlyBV then State.FlyBV:Destroy() State.FlyBV = nil end
+end)
+
+local fovGui = Create("ScreenGui", { Name = "FOV", ResetOnSpawn = false, DisplayOrder = 999998 }, PARENT)
 local fovCircle = Create("Frame", { Size = UDim2.fromOffset(0,0), Position = UDim2.new(0.5,0,0.5,0), AnchorPoint = Vector2.new(0.5,0.5), BackgroundTransparency = 1, BorderSizePixel = 1, BorderColor3 = Color3.fromRGB(255, 255, 255), Visible = false }, fovGui)
 Instance.new("UICorner", fovCircle).CornerRadius = UDim.new(1,0)
 RunService.RenderStepped:Connect(function() if Cfg.AimEnabled and Cfg.FOVCircle then fovCircle.Visible = true fovCircle.Size = UDim2.fromOffset(Cfg.AimFOV * 2, Cfg.AimFOV * 2) else fovCircle.Visible = false end end)
