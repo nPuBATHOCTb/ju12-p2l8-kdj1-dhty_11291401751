@@ -15,7 +15,6 @@ local Stats = game:GetService("Stats")
 local VirtualUser = game:GetService("VirtualUser")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
-local SoundService = game:GetService("SoundService")
 
 local LP = Players.LocalPlayer
 local PARENT = LP:WaitForChild("PlayerGui")
@@ -41,13 +40,11 @@ local Cfg = {
     NoRecoilEnabled = false,
     KillAuraEnabled = false,
     KillAuraRange = 20,
-    InstantKillEnabled = false,
     ESPEnabled = true,
     ESPBox = true,
     ESPName = true,
     ESPDistance = true,
     ESPHealth = true,
-    ESPWeapon = true,
     ESPSkeleton = false,
     ESPTracers = false,
     ESPHeadDot = false,
@@ -73,9 +70,6 @@ local Cfg = {
     FlyEnabled = false,
     FlySpeed = 50,
     NoclipEnabled = false,
-    AutoStrafeEnabled = false,
-    BhopEnabled = false,
-    AntiFlingEnabled = false,
     SpinbotEnabled = false,
     SpinbotSpeed = 15,
     ScreenShakeEnabled = false,
@@ -85,9 +79,6 @@ local Cfg = {
     EmotesEnabled = false,
     ChatSpamEnabled = false,
     ChatSpamText = "knifes.wtf on top",
-    DanceEnabled = false,
-    JitterEnabled = false,
-    HeadTiltEnabled = false,
     GravityEnabled = false,
     GravityValue = 196.2,
     TimeEnabled = false,
@@ -95,10 +86,6 @@ local Cfg = {
     SnowEnabled = false,
     AntiAFKEnabled = true,
     AutoRespawnEnabled = true,
-    AutoPickupEnabled = false,
-    ShowWatermark = true,
-    AccentColor = Color3.fromRGB(255, 60, 60),
-    BackgroundColor = Color3.fromRGB(10, 10, 15),
 }
 
 local State = {
@@ -108,20 +95,20 @@ local State = {
     LastShot = 0,
     ESPCache = {},
     SkelLines = {},
+    HitboxCache = {},
     AnimTrack = nil,
     SnowEmitter = nil,
 }
 
 local Theme = {
-    bg = Cfg.BackgroundColor,
+    bg = Color3.fromRGB(10, 10, 15),
     panel = Color3.fromRGB(18, 18, 25),
     elem = Color3.fromRGB(28, 32, 38),
     border = Color3.fromRGB(50, 50, 60),
     text = Color3.fromRGB(240, 240, 250),
     dim = Color3.fromRGB(150, 150, 160),
-    red = Cfg.AccentColor,
+    red = Color3.fromRGB(255, 60, 60),
     white = Color3.fromRGB(255, 255, 255),
-    green = Color3.fromRGB(60, 255, 60),
 }
 
 local F_Main = Enum.Font.GothamBold
@@ -188,7 +175,7 @@ Create("TextLabel", {
     Size = UDim2.new(1, -20, 1, 0),
     Position = UDim2.fromOffset(15, 0),
     BackgroundTransparency = 1,
-    Text = "knifes.wtf | OMNIPOTENT",
+    Text = "knifes.wtf | FIXED",
     TextColor3 = Theme.white,
     Font = F_Main,
     TextSize = 16,
@@ -332,37 +319,18 @@ CurrentTab = "COMBAT"
 AddSection("AIMBOT SETTINGS")
 AddToggle("Enable Aimbot (Hold E)", function() return Cfg.AimEnabled end, function(v) Cfg.AimEnabled = v end)
 AddToggle("Visible Only (Wall Check)", function() return Cfg.AimVisibleOnly end, function(v) Cfg.AimVisibleOnly = v end)
-AddToggle("Silent Aim (Hit Chance)", function() return Cfg.SilentAimEnabled end, function(v) Cfg.SilentAimEnabled = v end)
 AddToggle("Auto Fire (Click)", function() return Cfg.AimAutoFire end, function(v) Cfg.AimAutoFire = v end)
 AddSlider("Aimbot FOV Radius", 10, 500, function() return Cfg.AimFOV end, function(v) Cfg.AimFOV = v end)
 AddSlider("Smoothness", 1, 20, function() return math.floor(Cfg.AimSmooth) end, function(v) Cfg.AimSmooth = v end)
 AddSlider("Prediction", 1, 50, function() return math.floor(Cfg.AimPrediction*100) end, function(v) Cfg.AimPrediction = v/100 end)
 
-AddSection("WEAPON EXPLOITS")
+AddSection("EXPLOITS")
 AddToggle("No Spread (Client)", function() return Cfg.NoSpreadEnabled end, function(v) Cfg.NoSpreadEnabled = v end)
-AddToggle("No Recoil (Camera)", function() return Cfg.NoRecoilEnabled end, function(v) Cfg.NoRecoilEnabled = v end)
 AddToggle("Rapid Fire (Spam)", function() return Cfg.RapidFireEnabled end, function(v) Cfg.RapidFireEnabled = v end)
-AddToggle("Instant Kill (Touch)", function() return Cfg.InstantKillEnabled end, function(v) Cfg.InstantKillEnabled = v end)
-
-AddSection("HITBOX & AURA")
 AddToggle("Hitbox Expander", function() return Cfg.HitboxExpanderEnabled end, function(v) Cfg.HitboxExpanderEnabled = v end)
 AddSlider("Hitbox Size", 2, 30, function() return Cfg.HitboxSize end, function(v) Cfg.HitboxSize = v end)
 AddToggle("Kill Aura", function() return Cfg.KillAuraEnabled end, function(v) Cfg.KillAuraEnabled = v end)
 AddSlider("Aura Range", 5, 50, function() return Cfg.KillAuraRange end, function(v) Cfg.KillAuraRange = v end)
-
-AddSection("ACTIONS")
-AddButton("Kill All (Try Server)", Theme.red, function()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local h = p.Character:FindFirstChildOfClass("Humanoid")
-            if h and h.Health > 0 then
-                pcall(function() h:TakeDamage(1000) end)
-                pcall(function() h.Health = 0 end)
-                pcall(function() p.Character:BreakJoints() end)
-            end
-        end
-    end
-end)
 
 CurrentTab = "VISUALS"
 AddSection("PLAYER ESP")
@@ -371,14 +339,12 @@ AddToggle("Box ESP", function() return Cfg.ESPBox end, function(v) Cfg.ESPBox = 
 AddToggle("Name ESP", function() return Cfg.ESPName end, function(v) Cfg.ESPName = v end)
 AddToggle("Distance ESP", function() return Cfg.ESPDistance end, function(v) Cfg.ESPDistance = v end)
 AddToggle("Health Bar ESP", function() return Cfg.ESPHealth end, function(v) Cfg.ESPHealth = v end)
-AddToggle("Weapon ESP", function() return Cfg.ESPWeapon end, function(v) Cfg.ESPWeapon = v end)
 AddToggle("Skeleton ESP", function() return Cfg.ESPSkeleton end, function(v) Cfg.ESPSkeleton = v end)
 AddToggle("Tracer Lines", function() return Cfg.ESPTracers end, function(v) Cfg.ESPTracers = v end)
 AddToggle("Head Dot", function() return Cfg.ESPHeadDot end, function(v) Cfg.ESPHeadDot = v end)
 
 AddSection("CHAMS & EXTRAS")
-AddToggle("Enemy Chams (Glow)", function() return Cfg.ChamsEnabled end, function(v) Cfg.ChamsEnabled = v end)
-AddToggle("Self Chams (Glow)", function() return Cfg.SelfChamsEnabled end, function(v) Cfg.SelfChamsEnabled = v end)
+AddToggle("Enemy Chams", function() return Cfg.ChamsEnabled end, function(v) Cfg.ChamsEnabled = v end)
 AddToggle("China Hat", function() return Cfg.ChinaHat end, function(v) Cfg.ChinaHat = v end)
 AddToggle("Halo (Ring)", function() return Cfg.HaloEnabled end, function(v) Cfg.HaloEnabled = v end)
 AddToggle("FOV Circle", function() return Cfg.FOVCircle end, function(v) Cfg.FOVCircle = v end)
@@ -388,7 +354,6 @@ AddToggle("Fullbright", function() return Cfg.Fullbright end, function(v) Cfg.Fu
 AddToggle("Nightmode", function() return Cfg.Nightmode end, function(v) Cfg.Nightmode = v end)
 AddToggle("Ambient Light", function() return Cfg.AmbientLight end, function(v) Cfg.AmbientLight = v end)
 AddToggle("Remove Fog", function() return Cfg.NoFog end, function(v) Cfg.NoFog = v end)
-AddToggle("No Shadows", function() return Cfg.NoShadows end, function(v) Cfg.NoShadows = v end)
 
 CurrentTab = "MOVEMENT"
 AddSection("BASIC MOVEMENT")
@@ -401,29 +366,22 @@ AddToggle("Infinite Jump", function() return Cfg.InfJumpEnabled end, function(v)
 AddSection("ADVANCED MOVEMENT")
 AddToggle("Fly (WASD)", function() return Cfg.FlyEnabled end, function(v) Cfg.FlyEnabled = v end)
 AddSlider("Fly Speed", 10, 200, function() return Cfg.FlySpeed end, function(v) Cfg.FlySpeed = v end)
-AddToggle("Noclip (Phase)", function() return Cfg.NoclipEnabled end, function(v) Cfg.NoclipEnabled = v end)
-AddToggle("Auto Strafe", function() return Cfg.AutoStrafeEnabled end, function(v) Cfg.AutoStrafeEnabled = v end)
-AddToggle("Bhop (Auto Jump)", function() return Cfg.BhopEnabled end, function(v) Cfg.BhopEnabled = v end)
-AddToggle("Anti-Fling", function() return Cfg.AntiFlingEnabled end, function(v) Cfg.AntiFlingEnabled = v end)
+AddToggle("Noclip", function() return Cfg.NoclipEnabled end, function(v) Cfg.NoclipEnabled = v end)
 
 CurrentTab = "TROLL"
 AddSection("PLAYER TROLLS")
 AddToggle("Spinbot", function() return Cfg.SpinbotEnabled end, function(v) Cfg.SpinbotEnabled = v end)
 AddSlider("Spin Speed", 1, 50, function() return Cfg.SpinbotSpeed end, function(v) Cfg.SpinbotSpeed = v end)
 AddToggle("Screen Shake", function() return Cfg.ScreenShakeEnabled end, function(v) Cfg.ScreenShakeEnabled = v end)
-AddToggle("Head Tilt (Neck)", function() return Cfg.HeadTiltEnabled end, function(v) Cfg.HeadTiltEnabled = v end)
-AddToggle("Jitter (Head)", function() return Cfg.JitterEnabled end, function(v) Cfg.JitterEnabled = v end)
 
 AddSection("ENTITY TROLLS")
-AddToggle("Fling All (Chaos)", function() return Cfg.FlingAllEnabled end, function(v) Cfg.FlingAllEnabled = v end)
-AddToggle("Telekinesis (Pull)", function() return Cfg.TelekinesisEnabled end, function(v) Cfg.TelekinesisEnabled = v end)
+AddToggle("Fling All", function() return Cfg.FlingAllEnabled end, function(v) Cfg.FlingAllEnabled = v end)
+AddToggle("Telekinesis", function() return Cfg.TelekinesisEnabled end, function(v) Cfg.TelekinesisEnabled = v end)
 AddSlider("Tele Range", 5, 50, function() return Cfg.TelekinesisRange end, function(v) Cfg.TelekinesisRange = v end)
 
 AddSection("ANIMATIONS & CHAT")
 AddToggle("Emotes (Dance)", function() return Cfg.EmotesEnabled end, function(v) Cfg.EmotesEnabled = v end)
-AddToggle("Dance Mode (Walk)", function() return Cfg.DanceEnabled end, function(v) Cfg.DanceEnabled = v end)
 AddToggle("Chat Spam", function() return Cfg.ChatSpamEnabled end, function(v) Cfg.ChatSpamEnabled = v end)
-AddSlider("Spam Delay", 1, 10, function() return 2 end, function(v) end)
 
 CurrentTab = "WORLD"
 AddSection("GRAVITY & TIME")
@@ -431,16 +389,12 @@ AddToggle("Change Gravity", function() return Cfg.GravityEnabled end, function(v
 AddSlider("Gravity Value", 10, 500, function() return Cfg.GravityValue end, function(v) Cfg.GravityValue = v end)
 AddToggle("Change Time", function() return Cfg.TimeEnabled end, function(v) Cfg.TimeEnabled = v end)
 AddSlider("Time Value", 0, 24, function() return Cfg.TimeValue end, function(v) Cfg.TimeValue = v end)
-
-AddSection("WEATHER & EFFECTS")
 AddToggle("Snow Particles", function() return Cfg.SnowEnabled end, function(v) Cfg.SnowEnabled = v end)
 
 CurrentTab = "MISC"
 AddSection("UTILITIES")
 AddToggle("Anti-AFK", function() return Cfg.AntiAFKEnabled end, function(v) Cfg.AntiAFKEnabled = v end)
 AddToggle("Auto Respawn", function() return Cfg.AutoRespawnEnabled end, function(v) Cfg.AutoRespawnEnabled = v end)
-AddToggle("Auto Pickup Tools", function() return Cfg.AutoPickupEnabled end, function(v) Cfg.AutoPickupEnabled = v end)
-AddToggle("Show Watermark", function() return Cfg.ShowWatermark end, function(v) Cfg.ShowWatermark = v end)
 
 AddSection("SERVER ACTIONS")
 AddButton("Server Hop", Theme.red, function()
@@ -479,34 +433,6 @@ if getrawmetatable and setreadonly and hookfunction then
         if Cfg.RapidFireEnabled and method == "Activate" and self:IsA("Tool") then
             for i = 1, 3 do oldNamecall(self, ...) end
             return
-        end
-        
-        if Cfg.SilentAimEnabled and (method == "FireServer" or method == "InvokeServer") then
-            local cam = Workspace.CurrentCamera
-            local center = Vector2.new(cam.ViewportSize.X/2, cam.ViewportSize.Y/2)
-            local best, bd = nil, Cfg.AimFOV
-            
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LP and p.Character then
-                    local head = GetHead(p)
-                    if head then
-                        local sp, on = cam:WorldToViewportPoint(head.Position)
-                        if on and sp.Z > 0 then
-                            local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                            if d < bd then bd = d; best = head end
-                        end
-                    end
-                end
-            end
-            
-            if best then
-                local args = {...}
-                for i, arg in ipairs(args) do
-                    if typeof(arg) == "Vector3" then args[i] = best.Position
-                    elseif typeof(arg) == "CFrame" then args[i] = CFrame.new(cam.CFrame.Position, best.Position) end
-                end
-                return oldNamecall(self, unpack(args))
-            end
         end
         return oldNamecall(self, ...)
     end)
@@ -554,18 +480,29 @@ RunService.RenderStepped:Connect(function(dt)
         local best, bd = nil, Cfg.AimFOV
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= LP and p.Character then
-                local head = GetHead(p)
-                local hum = GetHum(p)
-                if head and hum and hum.Health > 0 then
-                    local sp, on = cam:WorldToViewportPoint(head.Position)
+                local head, hum, hrp = GetHead(p), GetHum(p), GetHRP(p)
+                if head and hum and hum.Health > 0 and hrp then
+                    local targetPos = head.Position
+                    if Cfg.AimPrediction and Cfg.AimPrediction > 0 then
+                        targetPos = targetPos + (Vector3.new(hrp.AssemblyLinearVelocity.X, 0, hrp.AssemblyLinearVelocity.Z) * Cfg.AimPrediction)
+                    end
+                    
+                    local sp, on = cam:WorldToViewportPoint(targetPos)
                     if on and sp.Z > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
                         if d < bd then
-                            if not Cfg.AimVisibleOnly or (function() 
-                                local r = Workspace:Raycast(cam.CFrame.Position, (head.Position - cam.CFrame.Position), RaycastParams.new())
-                                return r == nil or r.Instance:IsDescendantOf(p.Character) 
-                            end)() then
-                                bd = d; best = head
+                            local visible = true
+                            if Cfg.AimVisibleOnly then
+                                local rp = RaycastParams.new()
+                                rp.FilterDescendantsInstances = {LP.Character, cam}
+                                rp.FilterType = Enum.RaycastFilterType.Exclude
+                                local ray = Workspace:Raycast(cam.CFrame.Position, (head.Position - cam.CFrame.Position), rp)
+                                visible = (ray == nil or ray.Instance:IsDescendantOf(p.Character))
+                            end
+                            
+                            if visible then
+                                bd = d
+                                best = targetPos
                             end
                         end
                     end
@@ -573,8 +510,7 @@ RunService.RenderStepped:Connect(function(dt)
             end
         end
         if best then
-            local targetPos = best.Position
-            cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, targetPos), 1 / Cfg.AimSmooth)
+            cam.CFrame = cam.CFrame:Lerp(CFrame.new(cam.CFrame.Position, best), 1 / Cfg.AimSmooth)
             if Cfg.AimAutoFire and tick() - State.LastShot > Cfg.AimAutoFireDelay then 
                 State.LastShot = tick()
                 if mouse1click then pcall(mouse1click) end 
@@ -773,7 +709,7 @@ task.spawn(function()
         local hum = GetHum()
         if hum and hum:FindFirstChildOfClass("Animator") then
             local animator = hum:FindFirstChildOfClass("Animator")
-            if Cfg.EmotesEnabled or Cfg.DanceEnabled then
+            if Cfg.EmotesEnabled then
                 if not State.AnimTrack then State.AnimTrack = animator:LoadAnimation(Create("Animation", {AnimationId = "rbxassetid://507771019"})) end
                 if not State.AnimTrack.IsPlaying then State.AnimTrack:Play() end
             elseif State.AnimTrack and State.AnimTrack.IsPlaying then 
@@ -817,34 +753,35 @@ task.spawn(function()
         task.wait(0.2)
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= LP and plr.Character then
-                local hrp = plr.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    local safeHitbox = hrp:FindFirstChild("KNIFES_SafeHitbox")
+                local char = plr.Character
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
                     if Cfg.HitboxExpanderEnabled then
-                        if not safeHitbox then
-                            safeHitbox = Instance.new("Part")
-                            safeHitbox.Name = "KNIFES_SafeHitbox"
-                            safeHitbox.Size = Vector3.new(Cfg.HitboxSize, Cfg.HitboxSize, Cfg.HitboxSize)
-                            safeHitbox.Transparency = 1
-                            safeHitbox.CanCollide = false
-                            safeHitbox.Massless = true
-                            safeHitbox.CanQuery = true
-                            safeHitbox.CanTouch = true
-                            local weld = Instance.new("Weld")
-                            weld.Part0 = hrp
-                            weld.Part1 = safeHitbox
-                            weld.Parent = safeHitbox
-                            safeHitbox.Parent = hrp
-                            local box = Instance.new("SelectionBox")
-                            box.Adornee = safeHitbox
-                            box.LineThickness = 0.05
-                            box.Color3 = Color3.new(1, 1, 1)
-                            box.Parent = safeHitbox
-                        else
-                            safeHitbox.Size = Vector3.new(Cfg.HitboxSize, Cfg.HitboxSize, Cfg.HitboxSize)
+                        if not State.HitboxCache[plr] then State.HitboxCache[plr] = {} end
+                        for _, part in ipairs(char:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                if not State.HitboxCache[plr][part] then 
+                                    State.HitboxCache[plr][part] = {Size = part.Size, Trans = part.Transparency} 
+                                end
+                                local newSize = Cfg.HitboxSize / 2
+                                part.Size = Vector3.new(math.max(part.Size.X, newSize), math.max(part.Size.Y, newSize), math.max(part.Size.Z, newSize))
+                                part.Transparency = 0.8
+                                part.Massless = true
+                                part.CanCollide = true
+                                part.CanTouch = true
+                                part.CanQuery = true
+                            end
                         end
                     else
-                        if safeHitbox then safeHitbox:Destroy() end
+                        if State.HitboxCache[plr] then
+                            for part, data in pairs(State.HitboxCache[plr]) do
+                                if part and part.Parent then 
+                                    part.Size = data.Size 
+                                    part.Transparency = data.Trans 
+                                end
+                            end
+                            State.HitboxCache[plr] = nil
+                        end
                     end
                 end
             end
@@ -852,74 +789,72 @@ task.spawn(function()
     end
 end)
 
-local function ManageAccessories(plr)
-    if not plr.Character then return end
-    local head = plr.Character:FindFirstChild("Head")
-    if not head then return end
-
-    local hat = head:FindFirstChild("KNIFES_ChinaHat")
-    if Cfg.ChinaHat then
-        if not hat then
-            hat = Instance.new("Part")
-            hat.Name = "KNIFES_ChinaHat"
-            hat.Size = Vector3.new(1, 1, 1) 
-            hat.Material = Enum.Material.Neon
-            hat.Color = Cfg.ChinaHatColor
-            hat.CanCollide = false
-            hat.Anchored = false
-            hat.Massless = true
-            hat.CanQuery = false 
-            local mesh = Instance.new("SpecialMesh")
-            mesh.MeshId = "rbxassetid://1033714" 
-            mesh.Scale = Vector3.new(2, 1.5, 2) 
-            mesh.Parent = hat
-            local weld = Instance.new("Weld")
-            weld.Part0 = head
-            weld.Part1 = hat
-            weld.C0 = CFrame.new(0, 1.2, 0) * CFrame.Angles(0, math.rad(45), 0)
-            weld.Parent = hat
-            hat.Parent = head
-        else
-            if hat.Color ~= Cfg.ChinaHatColor then hat.Color = Cfg.ChinaHatColor end
+task.spawn(function()
+    while getgenv().KNIFES_OMNI_LOADED do
+        task.wait(0.2)
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.Character then
+                local head = plr.Character:FindFirstChild("Head")
+                if head then
+                    local hat = head:FindFirstChild("KNIFES_ChinaHat")
+                    if Cfg.ChinaHat then
+                        if not hat then
+                            hat = Instance.new("Part")
+                            hat.Name = "KNIFES_ChinaHat"
+                            hat.Size = Vector3.new(1, 1, 1) 
+                            hat.Material = Enum.Material.Neon
+                            hat.Color = Cfg.ChinaHatColor
+                            hat.CanCollide = false
+                            hat.Massless = true
+                            hat.CanQuery = false 
+                            local mesh = Instance.new("SpecialMesh")
+                            mesh.MeshId = "rbxassetid://1033714" 
+                            mesh.Scale = Vector3.new(2, 1.5, 2) 
+                            mesh.Parent = hat
+                            local weld = Instance.new("Weld")
+                            weld.Part0 = head
+                            weld.Part1 = hat
+                            weld.C0 = CFrame.new(0, 1.2, 0) * CFrame.Angles(0, math.rad(45), 0)
+                            weld.Parent = hat
+                            hat.Parent = head
+                        else
+                            hat.Color = Cfg.ChinaHatColor
+                        end
+                    elseif hat then
+                        hat:Destroy()
+                    end
+                    
+                    local halo = head:FindFirstChild("KNIFES_Halo")
+                    if Cfg.HaloEnabled then
+                        if not halo then
+                            halo = Instance.new("Part")
+                            halo.Name = "KNIFES_Halo"
+                            halo.Size = Vector3.new(1, 1, 1) 
+                            halo.Material = Enum.Material.Neon
+                            halo.Color = Cfg.HaloColor
+                            halo.CanCollide = false
+                            halo.Massless = true
+                            halo.CanQuery = false
+                            local mesh = Instance.new("SpecialMesh")
+                            mesh.MeshType = Enum.MeshType.FileMesh
+                            mesh.MeshId = "rbxassetid://3270017" 
+                            mesh.Scale = Vector3.new(2, 0.2, 2) 
+                            mesh.Parent = halo
+                            local weld = Instance.new("Weld")
+                            weld.Part0 = head
+                            weld.Part1 = halo
+                            weld.C0 = CFrame.new(0, 1.5, 0) 
+                            weld.Parent = halo
+                            halo.Parent = head
+                        else
+                            halo.Color = Cfg.HaloColor
+                        end
+                    elseif halo then
+                        halo:Destroy()
+                    end
+                end
+            end
         end
-    else
-        if hat then hat:Destroy() end
-    end
-
-    local halo = head:FindFirstChild("KNIFES_Halo")
-    if Cfg.HaloEnabled then
-        if not halo then
-            halo = Instance.new("Part")
-            halo.Name = "KNIFES_Halo"
-            halo.Size = Vector3.new(1, 1, 1) 
-            halo.Material = Enum.Material.Neon
-            halo.Color = Cfg.HaloColor
-            halo.CanCollide = false
-            halo.Anchored = false
-            halo.Massless = true
-            halo.CanQuery = false
-            local mesh = Instance.new("SpecialMesh")
-            mesh.MeshType = Enum.MeshType.FileMesh
-            mesh.MeshId = "rbxassetid://3270017" 
-            mesh.Scale = Vector3.new(2, 0.2, 2) 
-            mesh.Parent = halo
-            local weld = Instance.new("Weld")
-            weld.Part0 = head
-            weld.Part1 = halo
-            weld.C0 = CFrame.new(0, 1.5, 0) 
-            weld.Parent = halo
-            halo.Parent = head
-        else
-            if halo.Color ~= Cfg.HaloColor then halo.Color = Cfg.HaloColor end
-        end
-    else
-        if halo then halo:Destroy() end
-    end
-end
-
-RunService.RenderStepped:Connect(function()
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr.Character then ManageAccessories(plr) end
     end
 end)
 
